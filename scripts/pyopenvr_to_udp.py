@@ -77,9 +77,9 @@ while okToRun:
             
         if send==False: continue
         dev_type = openvr.IVRSystem().getTrackedDeviceClass(e.trackedDeviceIndex)
-        evt_type = openvr.IVRSystem().getEventTypeNameFromEnum(e.eventType)
+        #evt_type = openvr.IVRSystem().getEventTypeNameFromEnum(e.eventType)
         d=bytes('{"vive_id":%d'%e.trackedDeviceIndex + ',"type_id":%d'%dev_type +',"time":"%f"'%time.time()
-                + ',"event":"' + str(evt_type) +'"}', 'utf-8')
+                + ',"eventtype":%d'%e.eventType +'}', 'utf-8')
         s.sendto(d,(broadip,udpport))
         
     time.sleep(0.02)
