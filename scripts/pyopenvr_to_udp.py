@@ -49,7 +49,9 @@ openvr.init(openvr.VRApplication_Scene)
 poses_t = openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount
 poses = poses_t()
 
-while True:
+okToRun = True
+
+while okToRun:
     openvr.VRCompositor().waitGetPoses(poses, len(poses), None, 0)
     for j in range(openvr.k_unMaxTrackedDeviceCount):
         #hmd_pose = poses[openvr.k_unTrackedDeviceIndex_Hmd]
@@ -63,7 +65,23 @@ while True:
         d=bytes('{"vive_id":%d'%j + ',"type_id":%d'%dev_type +',"time":"%f"'%time.time()+',"pose":' + sd + '}', 'utf-8')
         s.sendto(d,(broadip,udpport))
         
-    sys.stdout.flush()
+    e = openvr.VREvent_t()
+    while (openvr.VRSystem().pollNextEvent(e) == True):
+        send = False
+        # Translate into json for sending over UDP
+        if e.eventType == openvr.VREvent_ButtonPress:   send = True
+        if e.eventType == openvr.VREvent_ButtonUnPress: send = True
+        if e.eventType == openvr.VREvent_Quit:
+            okToRun = False
+            send = True
+            
+        if send==False: continue
+        
+        dev_type = openvr.IVRSystem().getTrackedDeviceClass(e.trackedDeviceIndex)
+        d=bytes('{"vive_id":%d'%e.trackedDeviceIndex + ',"type_id":%d'%dev_type +',"time":"%f"'%time.time()
+                + ',"event":"' + openvr.getEventTypeNameFromEnum(e.eventType) +'"}', 'utf-8')
+        s.sendto(d,(broadip,udpport))
+        
     time.sleep(0.02)
 
 openvr.shutdown()
