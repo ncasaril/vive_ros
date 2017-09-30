@@ -70,16 +70,16 @@ while okToRun:
         send = False
         # Translate into json for sending over UDP
         if e.eventType == openvr.VREvent_ButtonPress:   send = True
-        if e.eventType == openvr.VREvent_ButtonUnPress: send = True
+        if e.eventType == openvr.VREvent_ButtonUnpress: send = True
         if e.eventType == openvr.VREvent_Quit:
             okToRun = False
             send = True
             
         if send==False: continue
-        
         dev_type = openvr.IVRSystem().getTrackedDeviceClass(e.trackedDeviceIndex)
+        evt_type = openvr.IVRSystem().getEventTypeNameFromEnum(e.eventType)
         d=bytes('{"vive_id":%d'%e.trackedDeviceIndex + ',"type_id":%d'%dev_type +',"time":"%f"'%time.time()
-                + ',"event":"' + openvr.getEventTypeNameFromEnum(e.eventType) +'"}', 'utf-8')
+                + ',"event":"' + evt_type +'"}', 'utf-8')
         s.sendto(d,(broadip,udpport))
         
     time.sleep(0.02)
