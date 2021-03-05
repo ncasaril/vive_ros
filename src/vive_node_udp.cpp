@@ -18,6 +18,7 @@ class vive_entry
 public:
     int vive_id;
     int type_id;
+    int event_type;
     double time;
     double pose[3][4];
 };
@@ -48,6 +49,7 @@ class VIVEnode
 
     UDPBroadcast ub_;
     std::vector<vive_entry> ve_;
+    int click_id_;
 };
 
 VIVEnode::VIVEnode(int rate)
@@ -58,6 +60,7 @@ VIVEnode::VIVEnode(int rate)
   , world_offset_({0, 0, 0})
   , world_yaw_(0)
   , ub_(8002)
+  , click_id_(0)
 {
     ve_.resize(16);
   nh_.getParam("/vive/world_offset", world_offset_);
@@ -108,10 +111,15 @@ void VIVEnode::vr_update()
         json_object * jobj = json_tokener_parse(s.c_str());
         if (!jobj) continue;
         vive_entry v;
+        v.event_type = 0;
         json_object_object_foreach(jobj, key, val) {
             enum json_type type = json_object_get_type(val);
             if (strcmp(key, "vive_id") == 0) v.vive_id = json_object_get_int(val);
             if (strcmp(key, "type_id") == 0) v.type_id = json_object_get_int(val);
+            if (strcmp(key, "eventtype") == 0)
+            {
+                v.event_type = json_object_get_int(val);
+            }
             if (strcmp(key, "time") == 0)    v.time = json_object_get_double(val);
             if (strcmp(key, "pose") == 0)
             {
@@ -133,6 +141,29 @@ void VIVEnode::vr_update()
             }
         }
         if (v.time==0 || v.type_id==0) continue;
+        if (v.event_type == 201) // Button release
+        {
+            double tf_matrix[3][4];
+            int dev_type = getDeviceMatrix(v.vive_id, tf_matrix);
+            if (dev_type == 0) continue;
+            
+            tf::Transform tf;
+            tf.setOrigin(tf::Vector3(tf_matrix[0][3], tf_matrix[1][3], tf_matrix[2][3]));
+            
+            tf::Quaternion quat;
+            tf::Matrix3x3 rot_matrix(tf_matrix[0][0], tf_matrix[0][1], tf_matrix[0][2],
+                                     tf_matrix[1][0], tf_matrix[1][1], tf_matrix[1][2],
+                                     tf_matrix[2][0], tf_matrix[2][1], tf_matrix[2][2]);
+            
+            rot_matrix.getRotation(quat);
+            tf.setRotation(quat);
+            
+            if (abs(click_id_)>15) click_id_=0;
+            tf_broadcaster_.sendTransform(tf::StampedTransform(tf, ros::Time::now(), "world_vive", "click"+std::to_string(click_id_++)));
+            ROS_INFO("Click at:[%.3f,%.3f,%.3f]", tf_matrix[0][3], tf_matrix[1][3], tf_matrix[2][3]);
+            continue;
+        }
+        if (v.event_type > 0) continue;
         ve_[v.vive_id] = v;
     }
 }
